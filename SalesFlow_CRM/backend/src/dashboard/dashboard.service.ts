@@ -1,0 +1,12 @@
+import { Injectable } from '@nestjs/common';import { InjectRepository } from '@nestjs/typeorm';import { Repository } from 'typeorm';import { Lead } from '../leads/lead.entity';import { Deal } from '../deals/deal.entity';import { Company } from '../companies/company.entity';import { Contact } from '../contacts/contact.entity';import { Activity } from '../activities/activity.entity';import { DealStage,LeadStatus } from '../common/enums';
+@Injectable()export class DashboardService{constructor(@InjectRepository(Lead)private leads:Repository<Lead>,@InjectRepository(Deal)private deals:Repository<Deal>,@InjectRepository(Company)private companies:Repository<Company>,@InjectRepository(Contact)private contacts:Repository<Contact>,@InjectRepository(Activity)private activities:Repository<Activity>){}
+async summary(){
+ const [leadCount,companyCount,contactCount,activeDeals,wonDeals,lostDeals]=await Promise.all([this.leads.count(),this.companies.count(),this.contacts.count(),this.deals.createQueryBuilder('d').where('d.stage NOT IN (:...stages)',{stages:[DealStage.WON,DealStage.LOST]}).getCount(),this.deals.count({where:{stage:DealStage.WON}}),this.deals.count({where:{stage:DealStage.LOST}})]);
+ const expected=await this.deals.createQueryBuilder('d').select('COALESCE(SUM(d.value),0)','sum').where('d.stage NOT IN (:...stages)',{stages:[DealStage.WON,DealStage.LOST]}).getRawOne();
+ const won=await this.deals.createQueryBuilder('d').select('COALESCE(SUM(d.value),0)','sum').where('d.stage = :stage',{stage:DealStage.WON}).getRawOne();
+ const pipeline=await Promise.all(Object.values(DealStage).map(async stage=>({stage,count:await this.deals.count({where:{stage}})})));
+ const leadStatus=await Promise.all(Object.values(LeadStatus).map(async status=>({status,count:await this.leads.count({where:{status}})})));
+ const upcoming=await this.activities.createQueryBuilder('a').leftJoinAndSelect('a.assignedTo','assignedTo').leftJoinAndSelect('a.lead','lead').leftJoinAndSelect('a.deal','deal').where('a.completed = false').andWhere('a.dueDate IS NOT NULL').andWhere('a.dueDate >= :now',{now:new Date()}).orderBy('a.dueDate','ASC').take(6).getMany();
+ const recentDeals=await this.deals.find({relations:['company','assignedTo'],order:{updatedAt:'DESC'},take:5});
+ return{leadCount,companyCount,contactCount,activeDeals,wonDeals,lostDeals,expectedRevenue:Number(expected.sum),wonRevenue:Number(won.sum),pipeline,leadStatus,upcoming,recentDeals};
+}}

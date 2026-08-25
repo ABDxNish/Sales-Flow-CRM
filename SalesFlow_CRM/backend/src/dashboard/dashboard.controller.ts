@@ -1,0 +1,1 @@
+import { Controller,Get,UseGuards } from '@nestjs/common';import { DashboardService } from './dashboard.service';import { AuthGuard } from '../common/auth.guard';@UseGuards(AuthGuard)@Controller('dashboard')export class DashboardController{constructor(private service:DashboardService){}@Get()summary(){return this.service.summary();}}
