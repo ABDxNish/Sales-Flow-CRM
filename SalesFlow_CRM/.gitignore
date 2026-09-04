@@ -1,0 +1,22 @@
+# Dependencies
+**/node_modules/
+
+# Builds
+**/dist/
+**/.next/
+
+# Environment secrets
+**/.env
+**/.env.local
+**/.env.production
+**/.env.*.local
+
+# Logs
+*.log
+
+# Operating system
+.DS_Store
+Thumbs.db
+
+# TypeScript cache
+*.tsbuildinfo
